@@ -1,0 +1,59 @@
+#include <WiFi.h>
+#include <WiFiClient.h>
+#include <WiFiAP.h>
+
+const char* ssid = "your_wifi_ssid";
+const char* password = "your_wifi_password";
+const char* ap_ssid = "your_ap_ssid";
+const char* ap_password = "your_ap_password";
+const char* server_ip = "your_laptop_ip";
+const int server_port = 1234;
+
+void setup() {
+  WiFi.softAP(ap_ssid, ap_password);
+  WiFi.begin(ssid, password);
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(1000);
+  }
+
+  WiFiServer server(80);
+  server.begin();
+
+  // Connect to the logging server
+  WiFiClient log_client;
+  while (!log_client.connect(server_ip, server_port)) {
+    delay(1000);
+  }
+
+  while (1) {
+    WiFiClient client = WiFi.softAP.accept();
+    if (client) {
+      String request = client.readStringUntil('\r');
+      String log_message = "Request: " + request;
+      log_client.print(log_message);
+
+      WiFiClient web_client;
+      if (web_client.connect("www.google.com", 80)) {
+        web_client.print(request);
+
+        while (web_client.connected()) {
+          if (web_client.available()) {
+            String response = web_client.readStringUntil('\r');
+            log_message = "Response: " + response;
+            log_client.print(log_message);
+            client.print(response);
+          }
+        }
+
+        web_client.stop();
+      }
+
+      client.stop();
+    }
+  }
+}
+
+void loop() {
+  // The loop function is not used in this version
+  delay(1000);
+}
